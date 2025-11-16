@@ -86,10 +86,28 @@ cd mobile
 npm install
 ```
 
-3. Inicie o servidor:
+3. Configure a URL da API:
+   - Edite `src/services/api.ts`
+   - Altere `API_BASE_URL` para o IP do seu servidor backend (não use `localhost`)
+   - Exemplo: `http://192.168.15.9:9080/api/v1`
+   - **Nota**: Porta padrão configurada: 9080 (altere se necessário)
+
+4. Instale o Expo Go no seu celular:
+   - [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)
+   - [iOS](https://apps.apple.com/app/expo-go/id982107779)
+
+5. Inicie o servidor:
 ```bash
 npm start
 ```
+
+6. Escaneie o QR code exibido:
+   - **Android**: Use o app Expo Go para escanear
+   - **iOS**: Use a câmera nativa (o Expo Go abrirá automaticamente)
+
+**Nota**: Certifique-se de que o celular e o computador estão na mesma rede Wi-Fi.
+
+Para mais detalhes, consulte [mobile/README.md](mobile/README.md).
 
 ## Funcionalidades Principais
 

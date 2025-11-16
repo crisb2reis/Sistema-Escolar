@@ -14,9 +14,11 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "scheme": "frequenciaescolar",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.frequenciaescolar.app"
+      "bundleIdentifier": "com.frequenciaescolar.app",
+      "associatedDomains": []
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +28,19 @@
       "package": "com.frequenciaescolar.app",
       "permissions": [
         "CAMERA"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "frequenciaescolar",
+              "host": "checkin"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {

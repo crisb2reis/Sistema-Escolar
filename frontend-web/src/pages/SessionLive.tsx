@@ -57,11 +57,21 @@ const SessionLive: React.FC = () => {
   const generateQRMutation = useMutation({
     mutationFn: () => sessionsApi.generateQR(id!),
     onSuccess: (data) => {
-      setQrData(data.qr_image_base64);
-      setExpiresAt(data.expires_at);
-      toast.success('QR Code gerado com sucesso!');
+      console.log('QR Code gerado:', { 
+        hasImage: !!data.qr_image_base64, 
+        imageLength: data.qr_image_base64?.length,
+        expiresAt: data.expires_at 
+      });
+      if (data.qr_image_base64) {
+        setQrData(data.qr_image_base64);
+        setExpiresAt(data.expires_at);
+        toast.success('QR Code gerado com sucesso!');
+      } else {
+        toast.error('QR Code gerado mas imagem não foi retornada');
+      }
     },
     onError: (error: any) => {
+      console.error('Erro ao gerar QR Code:', error);
       toast.error(error.response?.data?.detail || 'Erro ao gerar QR Code');
     },
   });
@@ -79,10 +89,11 @@ const SessionLive: React.FC = () => {
   });
 
   useEffect(() => {
-    if (session?.status === 'open' && !qrData) {
+    if (session?.status === 'open' && !qrData && !generateQRMutation.isPending && id) {
+      console.log('Gerando QR Code automaticamente para sessão:', id);
       generateQRMutation.mutate();
     }
-  }, [session]);
+  }, [session?.status, qrData, id]);
 
   if (sessionLoading) {
     return (
@@ -151,8 +162,12 @@ const SessionLive: React.FC = () => {
           <QRCodeDisplay
             qrImageBase64={qrData}
             expiresAt={expiresAt}
-            onRegenerate={() => generateQRMutation.mutate()}
-            loading={generateQRMutation.isPending}
+            onRegenerate={() => {
+              setQrData(null);
+              setExpiresAt(null);
+              generateQRMutation.mutate();
+            }}
+            loading={generateQRMutation.isPending || (session?.status === 'open' && !qrData)}
           />
         </Grid>
 

@@ -1,6 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Typography, Button, IconButton, TextField, MenuItem } from '@mui/material';
-import { Add, Edit, Delete, Visibility } from '@mui/icons-material';
+import {
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  TextField,
+  MenuItem,
+  Card,
+  CardContent,
+  CardHeader,
+  Grid,
+  Avatar,
+  Divider,
+  Chip,
+} from '@mui/material';
+import { Add, Edit, Delete, Visibility, Class as ClassIcon, School } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -144,29 +158,61 @@ const Classes: React.FC = () => {
     {
       id: 'name',
       label: 'Nome',
+      format: (value) => (
+        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+          {value}
+        </Typography>
+      ),
     },
     {
       id: 'course',
       label: 'Curso',
-      format: (_, row) => row.course?.name || '-',
+      format: (_, row) =>
+        row.course ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <School sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography variant="body1">{row.course.name}</Typography>
+            {row.course.code && (
+              <Chip
+                label={row.course.code}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+            )}
+          </Box>
+        ) : (
+          <Chip label="Sem curso" size="small" color="warning" variant="outlined" />
+        ),
     },
     {
       id: 'actions',
       label: 'Ações',
       align: 'right',
       format: (_, row) => (
-        <Box>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
           <IconButton
             size="small"
             color="info"
             onClick={() => navigate(`/classes/${row.id}`)}
+            title="Visualizar detalhes"
           >
             <Visibility />
           </IconButton>
-          <IconButton size="small" color="primary" onClick={() => handleOpenForm(row)}>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => handleOpenForm(row)}
+            title="Editar turma"
+          >
             <Edit />
           </IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => handleDelete(row)}
+            title="Excluir turma"
+          >
             <Delete />
           </IconButton>
         </Box>
@@ -174,24 +220,137 @@ const Classes: React.FC = () => {
     },
   ];
 
+  // Estatísticas
+  const totalClasses = filteredClasses.length;
+  const classesWithCourse = filteredClasses.filter((c) => c.course).length;
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Turmas</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenForm()}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar
+            sx={{
+              bgcolor: 'primary.main',
+              width: 56,
+              height: 56,
+            }}
+          >
+            <ClassIcon sx={{ fontSize: 32 }} />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 600 }}>
+              Turmas
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gerencie as turmas do sistema
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => handleOpenForm()}
+          size="large"
+          sx={{ px: 3 }}
+        >
           Nova Turma
         </Button>
       </Box>
 
-      <Box sx={{ mb: 2 }}>
-        <SearchBar
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Buscar por nome ou curso..."
-        />
-      </Box>
+      {/* Cards de Estatísticas */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <ClassIcon color="primary" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Total de Turmas
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                {totalClasses}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <School color="info" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Com Curso
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'info.main' }}>
+                {classesWithCourse}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <School color="warning" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Sem Curso
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                {totalClasses - classesWithCourse}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <School color="success" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Resultados da Busca
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'success.main' }}>
+                {filteredClasses.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      <DataTable columns={columns} data={filteredClasses} loading={isLoading} />
+      {/* Card da Tabela */}
+      <Card elevation={2}>
+        <CardHeader
+          avatar={
+            <Avatar sx={{ bgcolor: 'primary.main' }}>
+              <ClassIcon />
+            </Avatar>
+          }
+          title={
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Lista de Turmas
+            </Typography>
+          }
+          subheader={`${filteredClasses.length} turma${filteredClasses.length !== 1 ? 's' : ''} encontrada${filteredClasses.length !== 1 ? 's' : ''}`}
+          action={
+            <Box sx={{ mr: 2 }}>
+              <SearchBar
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Buscar por nome ou curso..."
+              />
+            </Box>
+          }
+        />
+        <Divider />
+        <CardContent sx={{ pt: 3 }}>
+          <DataTable columns={columns} data={filteredClasses} loading={isLoading} />
+        </CardContent>
+      </Card>
 
       <FormDialog
         open={formOpen}

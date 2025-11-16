@@ -21,6 +21,7 @@ import {
   Assignment,
   Assessment,
   Logout,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -48,6 +49,7 @@ const Layout: React.FC = () => {
           { text: 'Alunos', icon: <People />, path: '/students' },
           { text: 'Cursos', icon: <School />, path: '/courses' },
           { text: 'Turmas', icon: <School />, path: '/classes' },
+          { text: 'Usuários', icon: <AdminPanelSettings />, path: '/users' },
         ]
       : []),
     ...(user?.role === 'teacher' || user?.role === 'admin'

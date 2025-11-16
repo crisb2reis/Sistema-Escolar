@@ -46,21 +46,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const login = async (email: string, password: string) => {
-    const params = new URLSearchParams();
-    params.append('username', email);
-    params.append('password', password);
+    try {
+      const params = new URLSearchParams();
+      params.append('username', email);
+      params.append('password', password);
 
-    const response = await api.post('/auth/login', params.toString(), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
+      const response = await api.post('/auth/login', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
-    const { access_token, refresh_token } = response.data;
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
+      const { access_token, refresh_token } = response.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
 
-    await fetchUser();
+      await fetchUser();
+    } catch (error: any) {
+      // Remove tokens em caso de erro
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      // Re-lança o erro para que o componente Login possa tratá-lo
+      throw error;
+    }
   };
 
   const logout = async () => {

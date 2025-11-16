@@ -75,7 +75,17 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
             <img
               src={`data:image/png;base64,${qrImageBase64}`}
               alt="QR Code"
-              style={{ maxWidth: '100%', height: 'auto', maxHeight: '400px' }}
+              style={{ 
+                maxWidth: '100%', 
+                height: 'auto', 
+                maxHeight: '400px',
+                display: 'block',
+                margin: '0 auto'
+              }}
+              onError={(e) => {
+                console.error('Erro ao carregar QR Code:', e);
+                e.currentTarget.style.display = 'none';
+              }}
             />
           </Box>
 

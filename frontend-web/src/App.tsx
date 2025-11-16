@@ -14,9 +14,11 @@ import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import Courses from './pages/Courses';
 import Classes from './pages/Classes';
+import ClassDetail from './pages/ClassDetail';
 import Sessions from './pages/Sessions';
 import SessionLive from './pages/SessionLive';
 import Reports from './pages/Reports';
+import Users from './pages/Users';
 
 const theme = createTheme({
   palette: {
@@ -53,9 +55,11 @@ const AppRoutes: React.FC = () => {
         <Route path="students" element={<Students />} />
         <Route path="courses" element={<Courses />} />
         <Route path="classes" element={<Classes />} />
+        <Route path="classes/:id" element={<ClassDetail />} />
         <Route path="sessions" element={<Sessions />} />
         <Route path="sessions/:id/live" element={<SessionLive />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="users" element={<Users />} />
       </Route>
     </Routes>
   );

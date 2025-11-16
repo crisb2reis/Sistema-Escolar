@@ -7,8 +7,15 @@ import {
   Alert,
   TextField,
   MenuItem,
+  Card,
+  CardContent,
+  CardHeader,
+  Grid,
+  Avatar,
+  Divider,
+  Chip,
 } from '@mui/material';
-import { Add, Edit, Delete, Upload } from '@mui/icons-material';
+import { Add, Edit, Delete, Upload, People } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { useForm, Controller } from 'react-hook-form';
@@ -21,6 +28,7 @@ import SearchBar from '../components/SearchBar';
 import { useDebounce } from '../hooks/useDebounce';
 import { studentsApi } from '../services/api/students';
 import { classesApi } from '../services/api/classes';
+import { coursesApi } from '../services/api/courses';
 import { studentSchema } from '../services/validators';
 import type { Student, StudentCreate } from '../types/student';
 
@@ -37,6 +45,11 @@ const Students: React.FC = () => {
   const { data: classes } = useQuery({
     queryKey: ['classes'],
     queryFn: () => classesApi.getAll(),
+  });
+
+  const { data: courses } = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => coursesApi.getAll(),
   });
 
   const { data: students, isLoading } = useQuery<Student[]>({
@@ -74,7 +87,10 @@ const Students: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: StudentCreate) => studentsApi.create(data),
+    mutationFn: (data: StudentCreate) => {
+      console.log('Enviando dados:', data);
+      return studentsApi.create(data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       setFormOpen(false);
@@ -82,7 +98,24 @@ const Students: React.FC = () => {
       toast.success('Aluno criado com sucesso!');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Erro ao criar aluno');
+      console.error('Erro ao criar aluno:', error);
+      const errorDetail = error.response?.data?.detail;
+      let errorMessage = 'Erro ao criar aluno';
+      
+      if (errorDetail) {
+        if (Array.isArray(errorDetail)) {
+          // FastAPI retorna array de erros de validação
+          errorMessage = errorDetail.map((err: any) => 
+            `${err.loc?.join('.')}: ${err.msg}`
+          ).join(', ');
+        } else if (typeof errorDetail === 'string') {
+          errorMessage = errorDetail;
+        } else {
+          errorMessage = JSON.stringify(errorDetail);
+        }
+      }
+      
+      toast.error(errorMessage);
     },
   });
 
@@ -156,14 +189,26 @@ const Students: React.FC = () => {
   };
 
   const onSubmit = (data: any) => {
-    const submitData: StudentCreate = {
-      name: data.name,
-      email: data.email,
-      matricula: data.matricula,
-      curso: data.curso || undefined,
-      class_id: data.class_id || undefined,
-      password: data.password || undefined,
+    console.log('Dados do formulário:', data);
+    
+    // Função auxiliar para tratar valores vazios
+    const cleanValue = (value: any): string | undefined => {
+      if (!value) return undefined;
+      const str = String(value).trim();
+      return str !== '' ? str : undefined;
     };
+
+    const submitData: StudentCreate = {
+      name: data.name?.trim(),
+      email: data.email?.trim().toLowerCase(),
+      matricula: data.matricula?.trim(),
+      curso: cleanValue(data.curso),
+      class_id: cleanValue(data.class_id),
+      password: cleanValue(data.password),
+    };
+    
+    console.log('Dados processados para envio:', submitData);
+    
     if (selectedStudent) {
       updateMutation.mutate({ id: selectedStudent.id, data: submitData });
     } else {
@@ -190,34 +235,55 @@ const Students: React.FC = () => {
 
   const columns: Column<Student>[] = [
     {
-      id: 'user',
+      id: 'name',
       label: 'Nome',
-      format: (_, row) => row.user?.name || '-',
+      format: (_, row) => (
+        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+          {row.user?.name || '-'}
+        </Typography>
+      ),
     },
     {
-      id: 'user',
+      id: 'email',
       label: 'Email',
       format: (_, row) => row.user?.email || '-',
     },
     {
       id: 'matricula',
       label: 'Matrícula',
+      format: (value) => (
+        <Chip label={value} size="small" variant="outlined" color="primary" />
+      ),
     },
     {
       id: 'curso',
       label: 'Curso',
-      format: (value) => value || '-',
+      format: (value) => value ? (
+        <Chip label={value} size="small" color="info" variant="outlined" />
+      ) : (
+        <Typography variant="body2" color="text.secondary">-</Typography>
+      ),
     },
     {
       id: 'actions',
       label: 'Ações',
       align: 'right',
       format: (_, row) => (
-        <Box>
-          <IconButton size="small" color="primary" onClick={() => handleOpenForm(row)}>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => handleOpenForm(row)}
+            title="Editar aluno"
+          >
             <Edit />
           </IconButton>
-          <IconButton size="small" color="error" onClick={() => handleDelete(row)}>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => handleDelete(row)}
+            title="Excluir aluno"
+          >
             <Delete />
           </IconButton>
         </Box>
@@ -225,37 +291,152 @@ const Students: React.FC = () => {
     },
   ];
 
+  // Estatísticas
+  const totalStudents = filteredStudents.length;
+  const studentsWithClass = filteredStudents.filter((s) => s.class_id).length;
+  const studentsWithCourse = filteredStudents.filter((s) => s.curso).length;
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Alunos</Typography>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar
+            sx={{
+              bgcolor: 'primary.main',
+              width: 56,
+              height: 56,
+            }}
+          >
+            <People sx={{ fontSize: 32 }} />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 600 }}>
+              Alunos
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gerencie os alunos do sistema
+            </Typography>
+          </Box>
+        </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
             startIcon={<Upload />}
             onClick={() => setUploadOpen(true)}
+            size="large"
           >
             Upload CSV
           </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenForm()}>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpenForm()}
+            size="large"
+            sx={{ px: 3 }}
+          >
             Novo Aluno
           </Button>
         </Box>
       </Box>
 
-      <Box sx={{ mb: 2 }}>
-        <SearchBar
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Buscar por nome, email ou matrícula..."
-        />
-      </Box>
+      {/* Cards de Estatísticas */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <People color="primary" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Total de Alunos
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                {totalStudents}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <People color="info" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Com Turma
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'info.main' }}>
+                {studentsWithClass}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <People color="success" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Com Curso
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'success.main' }}>
+                {studentsWithCourse}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={2}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <People color="warning" sx={{ mr: 1, fontSize: 28 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Resultados da Busca
+                </Typography>
+              </Box>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                {filteredStudents.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      <DataTable
-        columns={columns}
-        data={filteredStudents}
-        loading={isLoading}
-      />
+      {/* Card da Tabela */}
+      <Card elevation={2}>
+        <CardHeader
+          avatar={
+            <Avatar sx={{ bgcolor: 'primary.main' }}>
+              <People />
+            </Avatar>
+          }
+          title={
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Lista de Alunos
+            </Typography>
+          }
+          subheader={`${filteredStudents.length} aluno${filteredStudents.length !== 1 ? 's' : ''} encontrado${filteredStudents.length !== 1 ? 's' : ''}`}
+          action={
+            <Box sx={{ mr: 2 }}>
+              <SearchBar
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Buscar por nome, email ou matrícula..."
+              />
+            </Box>
+          }
+        />
+        <Divider />
+        <CardContent sx={{ pt: 3 }}>
+          <DataTable
+            columns={columns}
+            data={filteredStudents}
+            loading={isLoading}
+          />
+        </CardContent>
+      </Card>
 
       {/* Formulário de Aluno */}
       <FormDialog
@@ -315,9 +496,19 @@ const Students: React.FC = () => {
             <TextField
               {...field}
               fullWidth
+              select
               label="Curso"
               margin="normal"
-            />
+              error={!!errors.curso}
+              helperText={errors.curso?.message}
+            >
+              <MenuItem value="">Selecione um curso</MenuItem>
+              {courses?.map((course) => (
+                <MenuItem key={course.id} value={course.name}>
+                  {course.code} - {course.name}
+                </MenuItem>
+              ))}
+            </TextField>
           )}
         />
         <Controller
