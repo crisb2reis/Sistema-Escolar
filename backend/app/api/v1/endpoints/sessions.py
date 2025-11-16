@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
 from app.db.base import get_db
-from app.api.v1.dependencies import get_current_teacher_or_admin, get_current_user
+from app.api.v1.dependencies import get_current_teacher_or_admin, get_current_user, get_current_active_admin
 from app.models.user import User
 from app.models.session import Session as SessionModel, SessionStatus
 from app.models.class_model import Class
@@ -13,6 +13,28 @@ from app.services.audit_service import log_audit
 import uuid
 
 router = APIRouter()
+
+
+@router.get("/", response_model=List[SessionResponse])
+async def list_sessions(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Lista todas as sessões"""
+    # Admin vê todas as sessões, professores veem apenas as suas
+    if current_user.role.value == "admin":
+        sessions = db.query(SessionModel).options(
+            joinedload(SessionModel.class_obj)
+        ).offset(skip).limit(limit).order_by(SessionModel.created_at.desc()).all()
+    else:
+        # Professores veem apenas suas sessões
+        sessions = db.query(SessionModel).options(
+            joinedload(SessionModel.class_obj)
+        ).filter(SessionModel.teacher_id == current_user.id).offset(skip).limit(limit).order_by(SessionModel.created_at.desc()).all()
+    
+    return sessions
 
 
 @router.post("/classes/{class_id}/sessions", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
@@ -41,7 +63,8 @@ async def create_session(
     )
     db.add(session)
     db.commit()
-    db.refresh(session)
+    # Recarregar com o relacionamento class_obj
+    session = db.query(SessionModel).options(joinedload(SessionModel.class_obj)).filter(SessionModel.id == session.id).first()
     
     await log_audit(
         db=db,
@@ -60,7 +83,7 @@ async def get_session(
     current_user: User = Depends(get_current_user)
 ):
     """Obtém detalhes de uma sessão"""
-    session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+    session = db.query(SessionModel).options(joinedload(SessionModel.class_obj)).filter(SessionModel.id == session_id).first()
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, students, classes, courses, sessions, checkin, reports, audit
+from app.api.v1.endpoints import auth, students, classes, courses, sessions, checkin, reports, audit, users
 
 api_router = APIRouter()
 
@@ -11,4 +11,5 @@ api_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"]
 api_router.include_router(checkin.router, prefix="/checkin", tags=["checkin"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(audit.router, prefix="/audit-logs", tags=["audit"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.db.base import get_db
 from app.api.v1.dependencies import get_current_active_admin
@@ -35,7 +35,8 @@ async def create_class(
     )
     db.add(class_obj)
     db.commit()
-    db.refresh(class_obj)
+    # Recarregar com o relacionamento course
+    class_obj = db.query(Class).options(joinedload(Class.course)).filter(Class.id == class_obj.id).first()
     
     await log_audit(
         db=db,
@@ -55,7 +56,7 @@ async def list_classes(
     current_user: User = Depends(get_current_active_admin)
 ):
     """Lista todas as turmas"""
-    classes = db.query(Class).offset(skip).limit(limit).all()
+    classes = db.query(Class).options(joinedload(Class.course)).offset(skip).limit(limit).all()
     return classes
 
 
@@ -66,7 +67,7 @@ async def get_class(
     current_user: User = Depends(get_current_active_admin)
 ):
     """Obtém detalhes de uma turma"""
-    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    class_obj = db.query(Class).options(joinedload(Class.course)).filter(Class.id == class_id).first()
     if not class_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,7 +103,8 @@ async def update_class(
         class_obj.course_id = class_data.course_id
     
     db.commit()
-    db.refresh(class_obj)
+    # Recarregar com o relacionamento course
+    class_obj = db.query(Class).options(joinedload(Class.course)).filter(Class.id == class_id).first()
     
     await log_audit(
         db=db,

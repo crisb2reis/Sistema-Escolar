@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator, model_serializer
+from typing import Optional, Dict, Any
 from datetime import datetime
+import uuid
 
 
 class SessionBase(BaseModel):
@@ -11,6 +12,21 @@ class SessionCreate(SessionBase):
     pass
 
 
+class ClassInfo(BaseModel):
+    id: str
+    name: str
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
+
+    class Config:
+        from_attributes = True
+
+
 class SessionResponse(BaseModel):
     id: str
     class_id: str
@@ -19,6 +35,28 @@ class SessionResponse(BaseModel):
     end_at: Optional[datetime]
     status: str
     created_at: datetime
+    class_obj: Optional[ClassInfo] = None
+
+    @field_validator('id', 'class_id', 'teacher_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
+
+    @model_serializer
+    def serialize_model(self):
+        """Serializar com 'class' em vez de 'class_obj' para compatibilidade com frontend"""
+        return {
+            'id': self.id,
+            'class_id': self.class_id,
+            'teacher_id': self.teacher_id,
+            'start_at': self.start_at,
+            'end_at': self.end_at,
+            'status': self.status,
+            'created_at': self.created_at,
+            'class': self.class_obj.model_dump() if self.class_obj else None,
+        }
 
     class Config:
         from_attributes = True

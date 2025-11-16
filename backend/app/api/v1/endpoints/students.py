@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.db.base import get_db
 from app.api.v1.dependencies import get_current_active_admin
@@ -13,6 +13,24 @@ from app.services.audit_service import log_audit
 import uuid
 
 router = APIRouter()
+
+
+def student_to_response(student: Student) -> dict:
+    """Converte um objeto Student para o formato de resposta"""
+    return {
+        "id": str(student.id),
+        "user_id": str(student.user_id),
+        "matricula": student.matricula,
+        "curso": student.curso,
+        "class_id": str(student.class_id) if student.class_id else None,
+        "user": {
+            "id": str(student.user.id),
+            "name": student.user.name,
+            "email": student.user.email,
+            "role": student.user.role.value if hasattr(student.user.role, 'value') else str(student.user.role),
+            "is_active": student.user.is_active
+        } if student.user else None
+    }
 
 
 @router.post("/", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
@@ -71,14 +89,17 @@ async def create_student(
     db.commit()
     db.refresh(student)
     
+    # Recarregar estudante com relacionamento user
+    student_with_user = db.query(Student).options(joinedload(Student.user)).filter(Student.id == student.id).first()
+    
     await log_audit(
         db=db,
         actor_id=current_user.id,
         action="create_student",
-        details={"student_id": str(student.id), "matricula": student.matricula}
+        details={"student_id": str(student_with_user.id), "matricula": student_with_user.matricula}
     )
     
-    return student
+    return student_to_response(student_with_user)
 
 
 @router.get("/", response_model=List[StudentResponse])
@@ -89,8 +110,8 @@ async def list_students(
     current_user: User = Depends(get_current_active_admin)
 ):
     """Lista todos os alunos"""
-    students = db.query(Student).offset(skip).limit(limit).all()
-    return students
+    students = db.query(Student).options(joinedload(Student.user)).offset(skip).limit(limit).all()
+    return [student_to_response(student) for student in students]
 
 
 @router.get("/{student_id}", response_model=StudentResponse)
@@ -100,13 +121,13 @@ async def get_student(
     current_user: User = Depends(get_current_active_admin)
 ):
     """Obtém detalhes de um aluno"""
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).options(joinedload(Student.user)).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Student not found"
         )
-    return student
+    return student_to_response(student)
 
 
 @router.put("/{student_id}", response_model=StudentResponse)
@@ -150,16 +171,18 @@ async def update_student(
         student.class_id = student_data.class_id
     
     db.commit()
-    db.refresh(student)
+    
+    # Recarregar estudante com relacionamento user
+    student_with_user = db.query(Student).options(joinedload(Student.user)).filter(Student.id == student.id).first()
     
     await log_audit(
         db=db,
         actor_id=current_user.id,
         action="update_student",
-        details={"student_id": str(student.id)}
+        details={"student_id": str(student_with_user.id)}
     )
     
-    return student
+    return student_to_response(student_with_user)
 
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)

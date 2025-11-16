@@ -5,14 +5,19 @@ from typing import Optional
 import uuid
 
 
-class Token(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: UserRole
 
 
-class TokenRefresh(BaseModel):
-    refresh_token: str
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -22,6 +27,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: str
     created_at: datetime
+    updated_at: datetime
 
     @field_validator('id', mode='before')
     @classmethod

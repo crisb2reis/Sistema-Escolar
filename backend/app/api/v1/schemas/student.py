@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import uuid
 
 
 class StudentBase(BaseModel):
@@ -30,6 +31,13 @@ class StudentResponse(BaseModel):
     curso: Optional[str]
     class_id: Optional[str]
     user: Optional[Dict[str, Any]] = None
+
+    @field_validator('id', 'user_id', 'class_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, uuid.UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True

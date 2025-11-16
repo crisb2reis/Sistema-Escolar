@@ -12,15 +12,29 @@ from app.core.config import settings
 from app.db.redis_client import get_redis
 
 
-def generate_qr_code(token: str) -> str:
-    """Gera imagem QR Code em base64 a partir de um token"""
+def generate_qr_code(token: str, use_deep_link: bool = True) -> str:
+    """Gera imagem QR Code em base64 a partir de um token
+    
+    Args:
+        token: Token JWT para o QR code
+        use_deep_link: Se True, usa deep link do app mobile. Se False, usa apenas o token.
+    """
+    # Se usar deep link, criar URL que abre o app mobile
+    if use_deep_link:
+        # Deep link format: frequenciaescolar://checkin?token=TOKEN
+        # Isso permite que o app mobile seja aberto automaticamente
+        qr_data = f"frequenciaescolar://checkin?token={token}"
+    else:
+        # Usar apenas o token (compatibilidade com versões antigas)
+        qr_data = token
+    
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
         border=4,
     )
-    qr.add_data(token)
+    qr.add_data(qr_data)
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
@@ -76,8 +90,8 @@ async def create_qr_token_for_session(
     redis_key = f"qr_token:nonce:{nonce}"
     redis_client.setex(redis_key, expire_minutes * 60, "active")
     
-    # Gerar QR Code
-    qr_image_base64 = generate_qr_code(token)
+    # Gerar QR Code com deep link para abrir o app mobile
+    qr_image_base64 = generate_qr_code(token, use_deep_link=True)
     
     return {
         "token_id": token_id,

@@ -120,12 +120,5 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
     """Retorna informações do usuário atual"""
-    return UserResponse(
-        id=str(current_user.id),
-        name=current_user.name,
-        email=current_user.email,
-        role=current_user.role,
-        is_active=current_user.is_active,
-        created_at=current_user.created_at
-    )
+    return current_user
 
