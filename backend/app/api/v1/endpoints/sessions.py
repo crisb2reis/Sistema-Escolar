@@ -7,6 +7,8 @@ from app.api.v1.dependencies import get_current_teacher_or_admin, get_current_us
 from app.models.user import User
 from app.models.session import Session as SessionModel, SessionStatus
 from app.models.class_model import Class
+from app.models.subject import Subject
+from app.models.class_subject import ClassSubject
 from app.api.v1.schemas.session import SessionCreate, SessionResponse, QRCodeResponse
 from app.services.qrcode_service import create_qr_token_for_session
 from app.services.audit_service import log_audit
@@ -26,13 +28,15 @@ async def list_sessions(
     # Admin vê todas as sessões, professores veem apenas as suas
     if current_user.role.value == "admin":
         sessions = db.query(SessionModel).options(
-            joinedload(SessionModel.class_obj)
-        ).offset(skip).limit(limit).order_by(SessionModel.created_at.desc()).all()
+            joinedload(SessionModel.class_obj),
+            joinedload(SessionModel.subject)
+        ).order_by(SessionModel.created_at.desc()).offset(skip).limit(limit).all()
     else:
         # Professores veem apenas suas sessões
         sessions = db.query(SessionModel).options(
-            joinedload(SessionModel.class_obj)
-        ).filter(SessionModel.teacher_id == current_user.id).offset(skip).limit(limit).order_by(SessionModel.created_at.desc()).all()
+            joinedload(SessionModel.class_obj),
+            joinedload(SessionModel.subject)
+        ).filter(SessionModel.teacher_id == current_user.id).order_by(SessionModel.created_at.desc()).offset(skip).limit(limit).all()
     
     return sessions
 
@@ -53,24 +57,59 @@ async def create_session(
             detail="Class not found"
         )
     
+    # Validar disciplina se fornecida
+    subject_id = None
+    if session_data.subject_id:
+        # Verificar se disciplina existe
+        subject = db.query(Subject).filter(Subject.id == session_data.subject_id).first()
+        if not subject:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject not found"
+            )
+        
+        # Verificar se disciplina pertence ao curso da turma
+        if subject.course_id != class_obj.course_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Subject does not belong to the class's course"
+            )
+        
+        # Verificar se disciplina está associada à turma
+        class_subject = db.query(ClassSubject).filter(
+            ClassSubject.class_id == class_id,
+            ClassSubject.subject_id == session_data.subject_id
+        ).first()
+        if not class_subject:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Subject is not associated with this class"
+            )
+        
+        subject_id = session_data.subject_id
+    
     # Criar sessão
     session = SessionModel(
         id=uuid.uuid4(),
         class_id=class_id,
         teacher_id=current_user.id,
+        subject_id=subject_id,
         start_at=session_data.start_at or datetime.utcnow(),
         status=SessionStatus.OPEN
     )
     db.add(session)
     db.commit()
-    # Recarregar com o relacionamento class_obj
-    session = db.query(SessionModel).options(joinedload(SessionModel.class_obj)).filter(SessionModel.id == session.id).first()
+    # Recarregar com os relacionamentos
+    session = db.query(SessionModel).options(
+        joinedload(SessionModel.class_obj),
+        joinedload(SessionModel.subject)
+    ).filter(SessionModel.id == session.id).first()
     
     await log_audit(
         db=db,
         actor_id=current_user.id,
         action="create_session",
-        details={"session_id": str(session.id), "class_id": class_id}
+        details={"session_id": str(session.id), "class_id": class_id, "subject_id": str(subject_id) if subject_id else None}
     )
     
     return session
@@ -83,7 +122,10 @@ async def get_session(
     current_user: User = Depends(get_current_user)
 ):
     """Obtém detalhes de uma sessão"""
-    session = db.query(SessionModel).options(joinedload(SessionModel.class_obj)).filter(SessionModel.id == session_id).first()
+    session = db.query(SessionModel).options(
+        joinedload(SessionModel.class_obj),
+        joinedload(SessionModel.subject)
+    ).filter(SessionModel.id == session_id).first()
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

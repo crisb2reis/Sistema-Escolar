@@ -15,6 +15,7 @@ import Students from './pages/Students';
 import Courses from './pages/Courses';
 import Classes from './pages/Classes';
 import ClassDetail from './pages/ClassDetail';
+import Subjects from './pages/Subjects';
 import Sessions from './pages/Sessions';
 import SessionLive from './pages/SessionLive';
 import Reports from './pages/Reports';
@@ -56,6 +57,7 @@ const AppRoutes: React.FC = () => {
         <Route path="courses" element={<Courses />} />
         <Route path="classes" element={<Classes />} />
         <Route path="classes/:id" element={<ClassDetail />} />
+        <Route path="subjects" element={<Subjects />} />
         <Route path="sessions" element={<Sessions />} />
         <Route path="sessions/:id/live" element={<SessionLive />} />
         <Route path="reports" element={<Reports />} />

@@ -8,6 +8,8 @@ from app.models.session import Session
 from app.models.qrcode_token import QRCodeToken
 from app.models.attendance import Attendance
 from app.models.audit_log import AuditLog
+from app.models.subject import Subject
+from app.models.class_subject import ClassSubject
 
 __all__ = [
     "User",
@@ -20,6 +22,8 @@ __all__ = [
     "QRCodeToken",
     "Attendance",
     "AuditLog",
+    "Subject",
+    "ClassSubject",
 ]
 
 

@@ -23,9 +23,17 @@ export const classSchema = yup.object().shape({
   course_id: yup.string().required('Curso é obrigatório'),
 });
 
+export const subjectSchema = yup.object().shape({
+  code: yup.string().required('Código é obrigatório'),
+  name: yup.string().required('Nome é obrigatório'),
+  course_id: yup.string().required('Curso é obrigatório'),
+  class_ids: yup.array().of(yup.string()),
+});
+
 export const sessionSchema = yup.object().shape({
   class_id: yup.string().required('Turma é obrigatória'),
   start_at: yup.string().required('Data de início é obrigatória'),
+  subject_id: yup.string(),
 });
 
 export const userCreateSchema = yup.object().shape({
