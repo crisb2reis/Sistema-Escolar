@@ -14,12 +14,31 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
-import { Add, Edit, Delete, Visibility, Class as ClassIcon, School } from '@mui/icons-material';
+import {
+  Add,
+  Edit,
+  Delete,
+  Visibility,
+  Class as ClassIcon,
+  School,
+  MenuBook,
+} from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  List,
+  ListItem,
+  CircularProgress,
+} from '@mui/material';
 import DataTable from '../components/DataTable';
 import type { Column } from '../components/DataTable';
 import FormDialog from '../components/FormDialog';
@@ -28,15 +47,20 @@ import SearchBar from '../components/SearchBar';
 import { useDebounce } from '../hooks/useDebounce';
 import { classesApi } from '../services/api/classes';
 import { coursesApi } from '../services/api/courses';
+import { subjectsApi, classSubjectsApi } from '../services/api/subjects';
 import { classSchema } from '../services/validators';
 import type { Class, ClassCreate } from '../types/class';
+import type { Subject, ClassSubject } from '../types/subject';
 
 const Classes: React.FC = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [subjectsModalOpen, setSubjectsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [subjectSearchTerm, setSubjectSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const debouncedSubjectSearch = useDebounce(subjectSearchTerm, 300);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -48,6 +72,20 @@ const Classes: React.FC = () => {
   const { data: classes, isLoading } = useQuery<Class[]>({
     queryKey: ['classes'],
     queryFn: () => classesApi.getAll(),
+  });
+
+  // Buscar disciplinas do curso quando uma turma for selecionada para gerenciar disciplinas
+  const { data: courseSubjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
+    queryKey: ['subjects', selectedClass?.course_id],
+    queryFn: () => subjectsApi.getAll(0, 1000, selectedClass?.course_id),
+    enabled: !!selectedClass?.course_id && subjectsModalOpen,
+  });
+
+  // Buscar disciplinas já associadas à turma
+  const { data: classSubjects, isLoading: classSubjectsLoading } = useQuery<ClassSubject[]>({
+    queryKey: ['classSubjects', selectedClass?.id],
+    queryFn: () => classSubjectsApi.getByClass(selectedClass!.id),
+    enabled: !!selectedClass?.id && subjectsModalOpen,
   });
 
   const filteredClasses = useMemo(() => {
@@ -154,6 +192,69 @@ const Classes: React.FC = () => {
     }
   };
 
+  const handleOpenSubjectsModal = (classItem: Class) => {
+    setSelectedClass(classItem);
+    setSubjectSearchTerm('');
+    setSubjectsModalOpen(true);
+  };
+
+  const handleCloseSubjectsModal = () => {
+    setSubjectsModalOpen(false);
+    setSelectedClass(null);
+    setSubjectSearchTerm('');
+  };
+
+  // Obter IDs das disciplinas já associadas
+  const associatedSubjectIds = useMemo(() => {
+    if (!classSubjects) return new Set<string>();
+    return new Set(classSubjects.map((cs) => cs.subject_id));
+  }, [classSubjects]);
+
+  // Filtrar disciplinas do curso
+  const filteredCourseSubjects = useMemo(() => {
+    if (!courseSubjects) return [];
+    if (!debouncedSubjectSearch) return courseSubjects;
+    const search = debouncedSubjectSearch.toLowerCase();
+    return courseSubjects.filter(
+      (s) =>
+        s.name.toLowerCase().includes(search) ||
+        s.code.toLowerCase().includes(search)
+    );
+  }, [courseSubjects, debouncedSubjectSearch]);
+
+  // Mutations para adicionar/remover disciplinas
+  const addSubjectMutation = useMutation({
+    mutationFn: (subjectId: string) =>
+      classSubjectsApi.addToClass(selectedClass!.id, subjectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['classSubjects', selectedClass?.id] });
+      toast.success('Disciplina adicionada com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Erro ao adicionar disciplina');
+    },
+  });
+
+  const removeSubjectMutation = useMutation({
+    mutationFn: (subjectId: string) =>
+      classSubjectsApi.removeFromClass(selectedClass!.id, subjectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['classSubjects', selectedClass?.id] });
+      toast.success('Disciplina removida com sucesso!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Erro ao remover disciplina');
+    },
+  });
+
+  const handleToggleSubject = (subjectId: string, isAssociated: boolean) => {
+    if (isAssociated) {
+      removeSubjectMutation.mutate(subjectId);
+    } else {
+      addSubjectMutation.mutate(subjectId);
+    }
+  };
+
   const columns: Column<Class>[] = [
     {
       id: 'name',
@@ -186,6 +287,26 @@ const Classes: React.FC = () => {
         ),
     },
     {
+      id: 'subjects',
+      label: 'Disciplinas',
+      format: (_, row) => {
+        // Buscar contagem de disciplinas (será otimizado depois)
+        return (
+          <Chip
+            label="Gerenciar"
+            size="small"
+            color="secondary"
+            variant="outlined"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenSubjectsModal(row);
+            }}
+            sx={{ cursor: 'pointer' }}
+          />
+        );
+      },
+    },
+    {
       id: 'actions',
       label: 'Ações',
       align: 'right',
@@ -198,6 +319,14 @@ const Classes: React.FC = () => {
             title="Visualizar detalhes"
           >
             <Visibility />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="secondary"
+            onClick={() => handleOpenSubjectsModal(row)}
+            title="Gerenciar disciplinas"
+          >
+            <MenuBook />
           </IconButton>
           <IconButton
             size="small"
@@ -410,6 +539,86 @@ const Classes: React.FC = () => {
         confirmText="Excluir"
         loading={deleteMutation.isPending}
       />
+
+      {/* Modal de Gerenciamento de Disciplinas */}
+      <Dialog
+        open={subjectsModalOpen}
+        onClose={handleCloseSubjectsModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MenuBook color="primary" />
+            <Typography variant="h6">
+              Gerenciar Disciplinas - {selectedClass?.name}
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {subjectsLoading || classSubjectsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box>
+              <Box sx={{ mb: 2 }}>
+                <SearchBar
+                  value={subjectSearchTerm}
+                  onChange={setSubjectSearchTerm}
+                  placeholder="Buscar disciplinas..."
+                />
+              </Box>
+              {filteredCourseSubjects.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                  Nenhuma disciplina encontrada para este curso.
+                </Typography>
+              ) : (
+                <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {filteredCourseSubjects.map((subject) => {
+                    const isAssociated = associatedSubjectIds.has(subject.id);
+                    return (
+                      <ListItem
+                        key={subject.id}
+                        sx={{
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isAssociated}
+                              onChange={() => handleToggleSubject(subject.id, isAssociated)}
+                              disabled={
+                                addSubjectMutation.isPending || removeSubjectMutation.isPending
+                              }
+                            />
+                          }
+                          label={
+                            <Box>
+                              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                {subject.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Código: {subject.code}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseSubjectsModal}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -14,6 +14,7 @@ class Course(Base):
 
     # Relacionamentos
     classes = relationship("Class", back_populates="course")
+    subjects = relationship("Subject", back_populates="course", cascade="all, delete-orphan")
 
 
 

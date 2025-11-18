@@ -27,6 +27,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { sessionsApi } from '../services/api/sessions';
 import { classesApi } from '../services/api/classes';
 import { coursesApi } from '../services/api/courses';
+import { classSubjectsApi } from '../services/api/subjects';
 import { sessionSchema } from '../services/validators';
 import type { Session, SessionCreate } from '../types/session';
 import { formatDateTime } from '../services/formatters';
@@ -63,13 +64,6 @@ const Sessions: React.FC = () => {
     return classes.filter((cls) => cls.course_id === selectedCourseId);
   }, [classes, selectedCourseId]);
 
-  const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
-    if (!debouncedSearch) return sessions;
-    const search = debouncedSearch.toLowerCase();
-    return sessions.filter((s) => s.class?.name?.toLowerCase().includes(search));
-  }, [sessions, debouncedSearch]);
-
   const {
     control,
     handleSubmit,
@@ -77,16 +71,33 @@ const Sessions: React.FC = () => {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<SessionCreate & { course_id: string; class_id: string }>({
+  } = useForm<SessionCreate & { course_id: string; class_id: string; subject_id: string }>({
     resolver: yupResolver(sessionSchema),
     defaultValues: {
       course_id: '',
       class_id: '',
+      subject_id: '',
       start_at: new Date().toISOString().slice(0, 16),
     },
   });
 
+  // Declarar watch ANTES das queries que os utilizam
   const watchedCourseId = watch('course_id');
+  const watchedClassId = watch('class_id');
+
+  // Buscar disciplinas da turma selecionada
+  const { data: classSubjects, isLoading: classSubjectsLoading, error: classSubjectsError } = useQuery({
+    queryKey: ['classSubjects', watchedClassId],
+    queryFn: () => classSubjectsApi.getByClass(watchedClassId),
+    enabled: !!watchedClassId,
+  });
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (!debouncedSearch) return sessions;
+    const search = debouncedSearch.toLowerCase();
+    return sessions.filter((s) => s.class?.name?.toLowerCase().includes(search));
+  }, [sessions, debouncedSearch]);
 
   const createMutation = useMutation({
     mutationFn: ({ classId, data }: { classId: string; data: SessionCreate }) =>
@@ -120,6 +131,7 @@ const Sessions: React.FC = () => {
     reset({
       course_id: '',
       class_id: '',
+      subject_id: '',
       start_at: new Date().toISOString().slice(0, 16),
     });
     setSelectedCourseId('');
@@ -132,11 +144,14 @@ const Sessions: React.FC = () => {
   };
 
   const onSubmit = (data: any) => {
-    const { class_id, start_at } = data;
+    const { class_id, start_at, subject_id } = data;
     if (!class_id || !start_at) return;
     createMutation.mutate({ 
       classId: class_id, 
-      data: { start_at: String(start_at) } as any
+      data: { 
+        start_at: String(start_at),
+        subject_id: subject_id || undefined
+      } as SessionCreate
     });
   };
 
@@ -376,8 +391,9 @@ const Sessions: React.FC = () => {
               onChange={(e) => {
                 field.onChange(e);
                 setSelectedCourseId(e.target.value);
-                // Limpar turma quando curso mudar
+                // Limpar turma e disciplina quando curso mudar
                 setValue('class_id', '');
+                setValue('subject_id', '');
               }}
             >
               <MenuItem value="">Selecione um curso</MenuItem>
@@ -402,11 +418,46 @@ const Sessions: React.FC = () => {
               error={!!errors.class_id}
               helperText={errors.class_id?.message}
               disabled={!!watchedCourseId && !filteredClasses.length}
+              onChange={(e) => {
+                field.onChange(e);
+                // Limpar disciplina quando turma mudar
+                setValue('subject_id', '');
+              }}
             >
               <MenuItem value="">Selecione uma turma</MenuItem>
               {filteredClasses?.map((cls) => (
                 <MenuItem key={cls.id} value={cls.id}>
                   {cls.name} {cls.course && `- ${cls.course.name}`}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        />
+        <Controller
+          name="subject_id"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              select
+              label="Disciplina"
+              margin="normal"
+              error={!!errors.subject_id}
+              helperText={
+                errors.subject_id?.message ||
+                (classSubjectsLoading ? 'Carregando disciplinas...' :
+                 classSubjectsError ? 'Erro ao carregar disciplinas' :
+                 !watchedClassId ? 'Selecione uma turma primeiro' :
+                 classSubjects && classSubjects.length === 0 ? 'Esta turma não possui disciplinas associadas' :
+                 'Opcional - selecione a disciplina da sessão')
+              }
+              disabled={!watchedClassId || classSubjectsLoading}
+            >
+              <MenuItem value="">Nenhuma disciplina (opcional)</MenuItem>
+              {classSubjects && classSubjects.length > 0 && classSubjects.map((cs) => (
+                <MenuItem key={cs.id} value={cs.subject_id}>
+                  {cs.subject?.code} - {cs.subject?.name}
                 </MenuItem>
               ))}
             </TextField>

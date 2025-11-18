@@ -19,6 +19,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { sessionsApi } from '../services/api/sessions';
 import { classesApi } from '../services/api/classes';
 import { studentsApi } from '../services/api/students';
+import { classSubjectsApi } from '../services/api/subjects';
 import { formatDateTime } from '../services/formatters';
 
 const SessionLive: React.FC = () => {
@@ -39,6 +40,12 @@ const SessionLive: React.FC = () => {
   const { data: classData } = useQuery({
     queryKey: ['class', session?.class_id],
     queryFn: () => classesApi.getById(session?.class_id!),
+    enabled: !!session?.class_id,
+  });
+
+  const { data: classSubjects } = useQuery({
+    queryKey: ['classSubjects', session?.class_id],
+    queryFn: () => classSubjectsApi.getByClass(session?.class_id!),
     enabled: !!session?.class_id,
   });
 
@@ -140,9 +147,29 @@ const SessionLive: React.FC = () => {
           >
             Voltar
           </Button>
-          <Typography variant="h4">
+          <Typography variant="h4" sx={{ mb: 1 }}>
             {classData?.name || 'Sessão'} - {formatDateTime(session.start_at)}
           </Typography>
+          {classData?.course && (
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 0.5 }}>
+              <strong>Curso:</strong> {classData.course.name} {classData.course.code && `(${classData.course.code})`}
+            </Typography>
+          )}
+          {session.subject ? (
+            <Typography variant="body1" color="text.secondary">
+              <strong>Disciplina:</strong> {session.subject.name} ({session.subject.code})
+            </Typography>
+          ) : classSubjects && classSubjects.length > 0 ? (
+            <Typography variant="body1" color="text.secondary">
+              <strong>Disciplinas da Turma:</strong>{' '}
+              {classSubjects.map((cs, index) => (
+                <span key={cs.id}>
+                  {cs.subject?.name || 'N/A'}
+                  {index < classSubjects.length - 1 && ', '}
+                </span>
+              ))}
+            </Typography>
+          ) : null}
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Chip label="Sessão Ativa" color="success" />

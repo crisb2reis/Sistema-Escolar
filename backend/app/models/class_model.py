@@ -17,6 +17,7 @@ class Class(Base):
     students = relationship("Student", back_populates="class_obj")
     schedules = relationship("Schedule", back_populates="class_obj", cascade="all, delete-orphan")
     sessions = relationship("Session", back_populates="class_obj")
+    class_subjects = relationship("ClassSubject", back_populates="class_obj", cascade="all, delete-orphan")
 
 
 

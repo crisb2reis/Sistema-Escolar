@@ -18,6 +18,7 @@ import {
   Dashboard,
   People,
   School,
+  MenuBook,
   Assignment,
   Assessment,
   Logout,
@@ -49,6 +50,7 @@ const Layout: React.FC = () => {
           { text: 'Alunos', icon: <People />, path: '/students' },
           { text: 'Cursos', icon: <School />, path: '/courses' },
           { text: 'Turmas', icon: <School />, path: '/classes' },
+          { text: 'Disciplinas', icon: <MenuBook />, path: '/subjects' },
           { text: 'Usuários', icon: <AdminPanelSettings />, path: '/users' },
         ]
       : []),

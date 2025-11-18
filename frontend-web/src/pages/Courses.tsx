@@ -12,8 +12,13 @@ import {
   Avatar,
   Divider,
   Chip,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  CircularProgress,
 } from '@mui/material';
-import { Add, Edit, Delete, School } from '@mui/icons-material';
+import { Add, Edit, Delete, School, MenuBook, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -25,13 +30,16 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import SearchBar from '../components/SearchBar';
 import { useDebounce } from '../hooks/useDebounce';
 import { coursesApi } from '../services/api/courses';
+import { subjectsApi } from '../services/api/subjects';
 import { courseSchema } from '../services/validators';
 import type { Course, CourseCreate } from '../types/course';
+import type { Subject } from '../types/subject';
 
 const Courses: React.FC = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const queryClient = useQueryClient();
@@ -39,6 +47,13 @@ const Courses: React.FC = () => {
   const { data: courses, isLoading } = useQuery<Course[]>({
     queryKey: ['courses'],
     queryFn: () => coursesApi.getAll(),
+  });
+
+  // Buscar disciplinas quando um curso for expandido
+  const { data: courseSubjects } = useQuery<Subject[]>({
+    queryKey: ['subjects', expandedCourseId],
+    queryFn: () => subjectsApi.getAll(0, 1000, expandedCourseId!),
+    enabled: !!expandedCourseId,
   });
 
   const filteredCourses = useMemo(() => {
@@ -145,6 +160,10 @@ const Courses: React.FC = () => {
     }
   };
 
+  const handleToggleExpand = (courseId: string) => {
+    setExpandedCourseId(expandedCourseId === courseId ? null : courseId);
+  };
+
   const columns: Column<Course>[] = [
     {
       id: 'code',
@@ -167,6 +186,22 @@ const Courses: React.FC = () => {
           {value}
         </Typography>
       ),
+    },
+    {
+      id: 'subjects',
+      label: 'Disciplinas',
+      format: (_, row) => {
+        const isExpanded = expandedCourseId === row.id;
+        return (
+          <IconButton
+            size="small"
+            onClick={() => handleToggleExpand(row.id)}
+            title={isExpanded ? 'Ocultar disciplinas' : 'Ver disciplinas'}
+          >
+            {isExpanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        );
+      },
     },
     {
       id: 'actions',
@@ -308,6 +343,54 @@ const Courses: React.FC = () => {
         <Divider />
         <CardContent sx={{ pt: 3 }}>
           <DataTable columns={columns} data={filteredCourses} loading={isLoading} />
+          {expandedCourseId && (
+            <Collapse in={!!expandedCourseId}>
+              <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <MenuBook color="primary" />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Disciplinas do Curso
+                  </Typography>
+                </Box>
+                {courseSubjects === undefined ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : courseSubjects.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                    Nenhuma disciplina cadastrada para este curso.
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {courseSubjects.map((subject) => (
+                      <ListItem
+                        key={subject.id}
+                        sx={{
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          py: 0.5,
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Chip
+                                label={subject.code}
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.7rem' }}
+                              />
+                              <Typography variant="body2">{subject.name}</Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            </Collapse>
+          )}
         </CardContent>
       </Card>
 
