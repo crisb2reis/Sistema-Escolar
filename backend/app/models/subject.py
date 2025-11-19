@@ -17,5 +17,6 @@ class Subject(Base):
     course = relationship("Course", back_populates="subjects")
     class_subjects = relationship("ClassSubject", back_populates="subject", cascade="all, delete-orphan")
     sessions = relationship("Session", back_populates="subject")
+    subject_contents = relationship("SubjectContent", back_populates="subject", cascade="all, delete-orphan")
 
 

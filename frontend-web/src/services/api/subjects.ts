@@ -49,4 +49,27 @@ export const classSubjectsApi = {
   },
 };
 
+export const subjectContentsApi = {
+  getByClassAndSubject: async (subjectId: string, classId: string, bimester?: string) => {
+    const params: any = {};
+    if (bimester) params.bimester = bimester;
+    const response = await api.get(`/subjects/${subjectId}/classes/${classId}/contents`, { params });
+    return response.data;
+  },
+
+  create: async (subjectId: string, classId: string, data: any) => {
+    const response = await api.post(`/subjects/${subjectId}/classes/${classId}/contents`, data);
+    return response.data;
+  },
+
+  update: async (subjectId: string, classId: string, contentId: string, data: any) => {
+    const response = await api.put(`/subjects/${subjectId}/classes/${classId}/contents/${contentId}`, data);
+    return response.data;
+  },
+
+  delete: async (subjectId: string, classId: string, contentId: string) => {
+    await api.delete(`/subjects/${subjectId}/classes/${classId}/contents/${contentId}`);
+  },
+};
+
 

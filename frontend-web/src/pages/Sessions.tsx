@@ -29,6 +29,7 @@ import { classesApi } from '../services/api/classes';
 import { coursesApi } from '../services/api/courses';
 import { classSubjectsApi } from '../services/api/subjects';
 import { sessionSchema } from '../services/validators';
+import * as yup from 'yup';
 import type { Session, SessionCreate } from '../types/session';
 import { formatDateTime } from '../services/formatters';
 
@@ -51,6 +52,7 @@ const Sessions: React.FC = () => {
     queryFn: () => classesApi.getAll(),
   });
 
+  // CORREÇÃO: Renomear para sessions (minúsculo)
   const { data: sessions, isLoading } = useQuery<Session[]>({
     queryKey: ['sessions'],
     queryFn: () => sessionsApi.getAll(),
@@ -64,6 +66,13 @@ const Sessions: React.FC = () => {
     return classes.filter((cls) => cls.course_id === selectedCourseId);
   }, [classes, selectedCourseId]);
 
+  // Extend the schema to include course_id
+  const sessionFormSchema = sessionSchema.shape({
+    course_id: yup.string().required('Curso é obrigatório'),
+    class_id: yup.string().required('Turma é obrigatória'),
+    subject_id: yup.string().optional(),
+  });
+
   const {
     control,
     handleSubmit,
@@ -72,7 +81,7 @@ const Sessions: React.FC = () => {
     setValue,
     formState: { errors },
   } = useForm<SessionCreate & { course_id: string; class_id: string; subject_id: string }>({
-    resolver: yupResolver(sessionSchema),
+    resolver: yupResolver(sessionFormSchema),
     defaultValues: {
       course_id: '',
       class_id: '',
@@ -92,6 +101,7 @@ const Sessions: React.FC = () => {
     enabled: !!watchedClassId,
   });
 
+  // CORREÇÃO: Usar sessions (minúsculo) em vez de Sessions
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
     if (!debouncedSearch) return sessions;
@@ -206,6 +216,7 @@ const Sessions: React.FC = () => {
       </Box>
 
       {/* Cards de Estatísticas */}
+      {/* CORREÇÃO: Remover a propriedade 'component' problemática */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card elevation={2}>
@@ -499,4 +510,3 @@ const Sessions: React.FC = () => {
 };
 
 export default Sessions;
-

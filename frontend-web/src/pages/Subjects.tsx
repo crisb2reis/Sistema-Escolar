@@ -20,7 +20,8 @@ import {
   Checkbox,
   ListItemText,
 } from '@mui/material';
-import { Add, Edit, Delete, MenuBook } from '@mui/icons-material';
+import { Add, Edit, Delete, MenuBook, Visibility } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -46,6 +47,7 @@ const Subjects: React.FC = () => {
   const [courseFilter, setCourseFilter] = useState<string>('');
   const debouncedSearch = useDebounce(searchTerm, 300);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: courses } = useQuery({
     queryKey: ['courses'],
@@ -253,6 +255,22 @@ const Subjects: React.FC = () => {
       align: 'right',
       format: (_, row) => (
         <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => navigate(`/subjects/${row.id}`)}
+            title="Visualizar disciplina"
+          >
+            <Visibility />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="info"
+            onClick={() => navigate(`/subjects/${row.id}/content`)}
+            title="Conteúdo Programático"
+          >
+            <MenuBook />
+          </IconButton>
           <IconButton
             size="small"
             color="primary"
